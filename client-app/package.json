@@ -1,0 +1,15 @@
+{
+  "name": "localhost-to-live",
+  "version": "1.0.0",
+  "description": "",
+  "main": "client.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "socket.io-client": "^4.7.2",
+    "superagent": "^8.1.2"
+  }
+}
