@@ -1,5 +1,5 @@
 const hostToLive = 'http://127.0.0.1:5000';
-const socketServerUrl = 'http://127.0.0.1:3000';
+const socketServerUrl = 'https://besame-x2-mucho.onrender.com';
 
 const socketClient = require('socket.io-client');
 const client = socketClient(socketServerUrl);

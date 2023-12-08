@@ -3,6 +3,9 @@ const express = require('express');
 const app = express();
 app.use(express.json());
 
+const cors = require('cors');
+app.use(cors());
+
 
 const htpp = require('http');
 const server = htpp.createServer(app);
@@ -50,15 +53,15 @@ app.use('*', upload.single('file') , async (req, res) => {
 
     io.emit('forward-request', forwadrReq);
     clientResponseRefs.set(_id, res);
-    setTimeout(() => {
-        if(clientResponseRefs.has(_id)) {
-            clientResponseRefs.get(_id).status(500).json({
-                'message': 'something went wrong',
-                'status code': '500',
-            });
-            clientResponseRefs.delete(_id);
-        }
-    }, 20000);
+    // setTimeout(() => {
+    //     if(clientResponseRefs.has(_id)) {
+    //         clientResponseRefs.get(_id).status(500).json({
+    //             'message': 'something went wrong',
+    //             'status code': '500',
+    //         });
+    //         clientResponseRefs.delete(_id);
+    //     }
+    // }, 20000);
 })
 
 io.on('connection', (socket) => {
