@@ -10,8 +10,9 @@ const socket = require('socket.io');
 io = socket(server);
 
 const multer = require("multer");
+const { unlinkSync } = require('fs');
 const upload = multer({
-    dest: "C:/Users/Mio/Downloads/Programs",
+    dest: "./tmp",
   });
 
 require('dotenv').config();
@@ -39,11 +40,11 @@ app.use('*', upload.single('file') , async (req, res) => {
     }
 
     file = req.file;
-    console.log(file);
     if(file) {
         const {secure_url} = await cloudinary.uploader.upload(file.path);
         forwadrReq.body['image_url'] = secure_url;
         forwadrReq.headers['Content-Type'] = 'application/json';
+        unlinkSync(file.path);
     }
     delete forwadrReq.headers['content-length'];
 
