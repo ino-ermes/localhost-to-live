@@ -1,46 +1,31 @@
-const socketServerUrl = '';
-const hostToLive = 'mylocal';
+const socketServerUrl = 'http://127.0.0.1:3000';
+const hostToLive = 'http://127.0.0.1:5000';
 
-const socket = require('socket.io-client')(socketServerUrl);
-const superagent = require('superagent');
+const socketClient = require('socket.io-client');
+const client = socketClient(socketServerUrl);
+const axios = require('axios');
 
-socket.on('connect', () => {
+client.on('connect', () => {
     console.log('connected');
 });
 
-socket.on('disconnect', () => {
+client.on('disconnect', () => {
     console.log('connection lost');
 });
 
-socket.on('page-request', (data) => {
-    const pathname = data.pathname;
-    const method = data.method;
-    const params = data.params;
-
-    const localhostUrl = hostToLive + path;
-
-    if(method == 'get') excuteGet(localhostUrl, params);
-    else if(method == 'post') excutePost(localhostUrl, params);
+client.on('forward-request', (req) => {
+    axios({
+        url: hostToLive + req.path,
+        method: req.method.toLowerCase(),
+        baseURL: req.path,
+        headers: req.headers,
+        params: req.args,
+        data: req.body,
+    })
+        .then(function (response) {
+            client.emit('forward-response', {data: response.data, statusCode: response.status, _id: req._id});
+        })
+        .catch((error) => {
+            client.emit('forward-response', {data: error.response.data, statusCode: error.response.status, _id: req._id});
+        })
 })
-
-const excuteGet = (url, params) => {
-    superagent.get(url)
-    .query(params)
-    .end((err, res) => {
-        if(err)
-            console.log(err);
-        else
-            socket.emit('page-response', res.text);
-    });
-}
-
-const excutePost = (url, params) => {
-    superagent.post(url)
-    .query(params)
-    .end((err, res) => {
-        if(err)
-            console.log(err);
-        else
-            socket.emit('page-response', res.text);
-    });
-}
