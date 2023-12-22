@@ -16,7 +16,7 @@ const multer = require("multer");
 const { unlinkSync } = require('fs');
 const upload = multer({
     dest: "./tmp",
-  });
+});
 
 require('dotenv').config();
 const cloudinary = require('cloudinary').v2;
@@ -27,9 +27,11 @@ cloudinary.config({
     secure: true,
 })
 
+const sharp = require('sharp');
+
 const clientResponseRefs = new Map();
 
-app.use('*', upload.single('file') , async (req, res) => {
+app.use('*', upload.single('image'), async (req, res) => {
     const _id = randomUUID();
 
     forwadrReq = {
@@ -42,32 +44,39 @@ app.use('*', upload.single('file') , async (req, res) => {
         _id
     }
 
-    file = req.file;
-    if(file) {
-        const {secure_url} = await cloudinary.uploader.upload(file.path);
-        forwadrReq.body['image_url'] = secure_url;
+    image = req.image;
+    if (image) {
+        const resizedImageBuffer = await sharp(image.buffer)
+            .resize(600, 600)
+            .toFormat('jpg')
+            .jpeg({ quality: 90 })
+            .toBuffer();
+
+        const uploadResponse = await cloudinary.uploader.upload(
+            `data:image/jpg;base64,${resizedImageBuffer.toString('base64')}`,
+            { resource_type: 'image' }
+        );
+
+        const imageUrl600x600 = uploadResponse.secure_url;
+        const imageUrl150x150 = cloudinary.url(uploadResponse.public_id, {
+            transformation: [{ width: 150, height: 150, crop: 'fill' }]
+        });
+
+        unlinkSync(image.path);
         forwadrReq.headers['Content-Type'] = 'application/json';
-        unlinkSync(file.path);
+        forwadrReq.body['img_url'] = imageUrl600x600;
+        forwadrReq.body['thumb_img_url'] = imageUrl150x150;
     }
     delete forwadrReq.headers['content-length'];
 
     io.emit('forward-request', forwadrReq);
     clientResponseRefs.set(_id, res);
-    // setTimeout(() => {
-    //     if(clientResponseRefs.has(_id)) {
-    //         clientResponseRefs.get(_id).status(500).json({
-    //             'message': 'something went wrong',
-    //             'status code': '500',
-    //         });
-    //         clientResponseRefs.delete(_id);
-    //     }
-    // }, 20000);
 })
 
 io.on('connection', (socket) => {
     console.log('a node connected');
     socket.on('forward-response', (res) => {
-        if(clientResponseRefs.has(res._id)) {
+        if (clientResponseRefs.has(res._id)) {
             clientResponseRefs.get(res._id).status(res.statusCode).json(res.data);
             clientResponseRefs.delete(res._id);
         }
