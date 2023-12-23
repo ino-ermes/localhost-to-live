@@ -13,9 +13,16 @@ const socket = require('socket.io');
 io = socket(server);
 
 const multer = require("multer");
-const { unlinkSync } = require('fs');
 const upload = multer({
-    dest: "./tmp",
+    limits: {
+        fieldSize: 1000000,
+    },
+    fileFilter(req, file, cb) {
+        if (!file.originalname.match(/\.(jpg|jpeg|png)$/)) {
+            return cb(new Error("Please upload a IMAGE"));
+        }
+        cb(undefined, true);
+    }
 });
 
 require('dotenv').config();
@@ -44,7 +51,7 @@ app.use('*', upload.single('image'), async (req, res) => {
         _id
     }
 
-    image = req.image;
+    image = req.file;
     if (image) {
         const resizedImageBuffer = await sharp(image.buffer)
             .resize(600, 600)
@@ -62,7 +69,6 @@ app.use('*', upload.single('image'), async (req, res) => {
             transformation: [{ width: 150, height: 150, crop: 'fill' }]
         });
 
-        unlinkSync(image.path);
         forwadrReq.headers['Content-Type'] = 'application/json';
         forwadrReq.body['img_url'] = imageUrl600x600;
         forwadrReq.body['thumb_img_url'] = imageUrl150x150;
