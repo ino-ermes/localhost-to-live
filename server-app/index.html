@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Medical plant prediction</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .card {
+            display: flex;
+            align-items: center;
+            flex-direction: row;
+            width: 90%;
+            background-color: bisque;
+            margin: 3px 0;
+            border-radius: 5px;
+            overflow: hidden;
+            height: 100px;
+            box-shadow: 4px 2px 2px rgb(0, 0, 0);
+        }
+        .card .card-image {
+            display: block;
+            height: 100%;
+        }
+        .card .card-info {
+            padding: 10px;
+        }
+        .card .common_name {
+            font-weight: 600;
+        }
+        .details {
+            width: 90%;
+            margin-top: -5px;
+            margin-bottom: 20px;
+            border-bottom-left-radius: 5px;
+            border-bottom-right-radius: 5px;
+            border-color: bisque;
+            border-width: 2px;
+            border-style: solid;
+            background-color: azure;
+            box-shadow: 4px 2px 2px rgb(0, 0, 0);
+        }
+        .details .details-title {
+            font-weight: 600;
+        }
+        .container {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        video {
+            width: 60%;
+            height: auto;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <p style="font-size: 20px; margin-top: 10px;">Medical Plant Prediction</p>
+        <video id="video" autoplay playsinline></video>
+        <button id="capture-btn" style="font-size: medium; padding: 4px; margin-bottom: 30px;">Predict</button>
+        <canvas id="canvas" style="display: none;"></canvas>
+    <pre id="notification"></pre>
+    <div class="container">
+    </div>
+    <script>
+        function startVideoStream() {
+            var video = document.getElementById('video');
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    video.srcObject = stream;
+                    video.onloadedmetadata = function () {
+                        var minDimension = Math.min(video.videoWidth, video.videoHeight);
+                        video.width = minDimension;
+                        video.height = minDimension;
+                    };
+                })
+                .catch(error => {
+                    console.error("Error accessing the device camera", error);
+                });
+        }
+
+        function captureAndUploadImage() {
+            notification = document.getElementById('notification');
+            notification.innerText = 'Predicting...';
+
+            result = document.getElementsByClassName("container")[0];
+            result.innerHTML = "";
+
+            var video = document.getElementById('video');
+            var canvas = document.getElementById('canvas');
+            var context = canvas.getContext('2d');
+
+            // Calculate the size and position for square crop
+            var size = Math.min(video.videoWidth, video.videoHeight);
+            var sx = (video.videoWidth - size) / 2;
+            var sy = (video.videoHeight - size) / 2;
+            // Set canvas size to the size of the square crop
+            canvas.width = size;
+            canvas.height = size;
+            // Draw the video frame to the canvas with the square crop
+            context.drawImage(video, sx, sy, size, size, 0, 0, size, size);
+
+            canvas.toBlob(blob => {
+                const formData = new FormData();
+                formData.append('image', blob, 'capture.png');
+                fetch('https://besame-x2-mucho.onrender.com/api/v1/predicts/rasp', {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        notification.innerText = "";
+                        
+                        data.predict_list.forEach((predict, index) => {
+                            let card = document.createElement('div');
+                            card.className = 'card';
+                            card.innerHTML = `
+                                <img class="card-image" src="${predict.thumb_img_url}"/>
+                                <div class="card-info">
+                                    <p class="common_name">${predict.common_name}</p>
+                                    <p class="binomial_name">${predict.binomial_name}</p>
+                                    <p class="confidence">${predict.confidence}%</p>
+                                </div>
+                            `;
+                            result.appendChild(card);
+                            if(index == 0) {
+                                bestPlant = data.best_plant;
+                                let details = document.createElement('div');
+                                details.className = 'details';
+                                details.innerHTML += `
+                                    <p><span class="details-title">Tên khác: </span>${bestPlant.another_name}</p>
+                                    <p><span class="details-title">Họ: </span>${bestPlant.family}</p>
+                                    <p><span class="details-title">Bộ phận dùng: </span>${bestPlant.usable_part}</p>
+                                    <p><span class="details-title">Chức năng: </span>${bestPlant.function}</p>
+                                    <p><span class="details-title">Cách dùng: </span>${bestPlant.usage}</p>
+                                ` 
+                                result.appendChild(details);
+                            }
+                        });
+                    })
+                    .catch(error => {
+                        console.error("Error uploading image to server", error);
+                        notification.textContent = `Failed to upload image: ${error}`;
+                    });
+            }, 'image/jpeg')
+        }
+
+        document.getElementById('capture-btn').addEventListener('click', function () {
+            captureAndUploadImage();
+        });
+        startVideoStream();
+    </script>
+</body>
+
+</html>
